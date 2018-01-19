@@ -17,21 +17,22 @@ public class TimeoutBlockingWaitStrategy implements WaitStrategy
     }
 
     @Override
-    public long waitFor(final long sequence,
-                        final Sequence cursorSequence,
-                        final Sequence dependentSequence,
-                        final SequenceBarrier barrier)
+    public long waitFor(
+        final long sequence,
+        final Sequence cursorSequence,
+        final Sequence dependentSequence,
+        final SequenceBarrier barrier)
         throws AlertException, InterruptedException, TimeoutException
     {
         long nanos = timeoutInNanos;
 
         long availableSequence;
-        if ((availableSequence = cursorSequence.get()) < sequence)
+        if (cursorSequence.get() < sequence)
         {
             lock.lock();
             try
             {
-                while ((availableSequence = cursorSequence.get()) < sequence)
+                while (cursorSequence.get() < sequence)
                 {
                     barrier.checkAlert();
                     nanos = processorNotifyCondition.awaitNanos(nanos);
@@ -69,4 +70,11 @@ public class TimeoutBlockingWaitStrategy implements WaitStrategy
         }
     }
 
+    @Override
+    public String toString()
+    {
+        return "TimeoutBlockingWaitStrategy{" +
+            "processorNotifyCondition=" + processorNotifyCondition +
+            '}';
+    }
 }

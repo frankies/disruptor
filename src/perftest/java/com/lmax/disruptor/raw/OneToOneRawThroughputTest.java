@@ -81,6 +81,7 @@ public final class OneToOneRawThroughputTest extends AbstractPerfTestDisruptor
 
     private final Sequencer sequencer = new SingleProducerSequencer(BUFFER_SIZE, new YieldingWaitStrategy());
     private final MyRunnable myRunnable = new MyRunnable(sequencer);
+
     {
         sequencer.addGatingSequences(myRunnable.sequence);
     }
@@ -132,7 +133,7 @@ public final class OneToOneRawThroughputTest extends AbstractPerfTestDisruptor
         Sequence sequence = new Sequence(-1);
         private final SequenceBarrier barrier;
 
-        public MyRunnable(Sequencer sequencer)
+        MyRunnable(Sequencer sequencer)
         {
             this.barrier = sequencer.newBarrier();
         }

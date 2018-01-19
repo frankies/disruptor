@@ -34,9 +34,10 @@ public class EventHandlerGroup<T>
     private final ConsumerRepository<T> consumerRepository;
     private final Sequence[] sequences;
 
-    EventHandlerGroup(final Disruptor<T> disruptor,
-                      final ConsumerRepository<T> consumerRepository,
-                      final Sequence[] sequences)
+    EventHandlerGroup(
+        final Disruptor<T> disruptor,
+        final ConsumerRepository<T> consumerRepository,
+        final Sequence[] sequences)
     {
         this.disruptor = disruptor;
         this.consumerRepository = consumerRepository;
@@ -53,7 +54,9 @@ public class EventHandlerGroup<T>
     {
         final Sequence[] combinedSequences = new Sequence[this.sequences.length + otherHandlerGroup.sequences.length];
         System.arraycopy(this.sequences, 0, combinedSequences, 0, this.sequences.length);
-        System.arraycopy(otherHandlerGroup.sequences, 0, combinedSequences, this.sequences.length, otherHandlerGroup.sequences.length);
+        System.arraycopy(
+            otherHandlerGroup.sequences, 0,
+            combinedSequences, this.sequences.length, otherHandlerGroup.sequences.length);
         return new EventHandlerGroup<T>(disruptor, consumerRepository, combinedSequences);
     }
 
@@ -78,8 +81,8 @@ public class EventHandlerGroup<T>
     }
 
     /**
-     * Set up batch handlers to consume events from the ring buffer. These handlers will only process events
-     * after every {@link EventProcessor} in this group has processed the event.
+     * <p>Set up batch handlers to consume events from the ring buffer. These handlers will only process events
+     * after every {@link EventProcessor} in this group has processed the event.</p>
      *
      * <p>This method is generally used as part of a chain. For example if the handler <code>A</code> must
      * process events before handler <code>B</code>:</p>
@@ -110,9 +113,9 @@ public class EventHandlerGroup<T>
     }
 
     /**
-     * Set up a worker pool to handle events from the ring buffer. The worker pool will only process events
+     * <p>Set up a worker pool to handle events from the ring buffer. The worker pool will only process events
      * after every {@link EventProcessor} in this group has processed the event. Each event will be processed
-     * by one of the work handler instances.
+     * by one of the work handler instances.</p>
      *
      * <p>This method is generally used as part of a chain. For example if the handler <code>A</code> must
      * process events before the worker pool with handlers <code>B, C</code>:</p>
@@ -128,8 +131,8 @@ public class EventHandlerGroup<T>
     }
 
     /**
-     * Set up batch handlers to handle events from the ring buffer. These handlers will only process events
-     * after every {@link EventProcessor} in this group has processed the event.
+     * <p>Set up batch handlers to handle events from the ring buffer. These handlers will only process events
+     * after every {@link EventProcessor} in this group has processed the event.</p>
      *
      * <p>This method is generally used as part of a chain. For example if <code>A</code> must
      * process events before <code>B</code>:</p>
@@ -162,9 +165,9 @@ public class EventHandlerGroup<T>
     }
 
     /**
-     * Set up a worker pool to handle events from the ring buffer. The worker pool will only process events
+     * <p>Set up a worker pool to handle events from the ring buffer. The worker pool will only process events
      * after every {@link EventProcessor} in this group has processed the event. Each event will be processed
-     * by one of the work handler instances.
+     * by one of the work handler instances.</p>
      *
      * <p>This method is generally used as part of a chain. For example if the handler <code>A</code> must
      * process events before the worker pool with handlers <code>B, C</code>:</p>

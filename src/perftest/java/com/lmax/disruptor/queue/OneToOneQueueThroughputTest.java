@@ -15,19 +15,13 @@
  */
 package com.lmax.disruptor.queue;
 
-import static com.lmax.disruptor.support.PerfTestUtil.failIf;
-
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-
 import com.lmax.disruptor.AbstractPerfTestQueue;
-import com.lmax.disruptor.support.PerfTestUtil;
 import com.lmax.disruptor.support.ValueAdditionQueueProcessor;
 import com.lmax.disruptor.util.DaemonThreadFactory;
+
+import java.util.concurrent.*;
+
+import static com.lmax.disruptor.support.PerfTestUtil.failIf;
 
 /**
  * <pre>
@@ -56,12 +50,13 @@ public final class OneToOneQueueThroughputTest extends AbstractPerfTestQueue
     private static final int BUFFER_SIZE = 1024 * 64;
     private static final long ITERATIONS = 1000L * 1000L * 10L;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(DaemonThreadFactory.INSTANCE);
-    private final long expectedResult = PerfTestUtil.accumulatedAddition(ITERATIONS);
+    private final long expectedResult = ITERATIONS * 3L;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     private final BlockingQueue<Long> blockingQueue = new LinkedBlockingQueue<Long>(BUFFER_SIZE);
-    private final ValueAdditionQueueProcessor queueProcessor = new ValueAdditionQueueProcessor(blockingQueue, ITERATIONS - 1);
+    private final ValueAdditionQueueProcessor queueProcessor =
+        new ValueAdditionQueueProcessor(blockingQueue, ITERATIONS - 1);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -81,7 +76,7 @@ public final class OneToOneQueueThroughputTest extends AbstractPerfTestQueue
 
         for (long i = 0; i < ITERATIONS; i++)
         {
-            blockingQueue.put(Long.valueOf(i));
+            blockingQueue.put(3L);
         }
 
         latch.await();

@@ -20,6 +20,8 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.lmax.disruptor.util.ThreadHints;
+
 /**
  * Variation of the {@link BlockingWaitStrategy} that attempts to elide conditional wake-ups when
  * the lock is uncontended.  Shows performance improvements on microbenchmarks.  However this
@@ -37,7 +39,7 @@ public final class LiteBlockingWaitStrategy implements WaitStrategy
         throws AlertException, InterruptedException
     {
         long availableSequence;
-        if ((availableSequence = cursorSequence.get()) < sequence)
+        if (cursorSequence.get() < sequence)
         {
             lock.lock();
 
@@ -47,7 +49,7 @@ public final class LiteBlockingWaitStrategy implements WaitStrategy
                 {
                     signalNeeded.getAndSet(true);
 
-                    if ((availableSequence = cursorSequence.get()) >= sequence)
+                    if (cursorSequence.get() >= sequence)
                     {
                         break;
                     }
@@ -55,7 +57,7 @@ public final class LiteBlockingWaitStrategy implements WaitStrategy
                     barrier.checkAlert();
                     processorNotifyCondition.await();
                 }
-                while ((availableSequence = cursorSequence.get()) < sequence);
+                while (cursorSequence.get() < sequence);
             }
             finally
             {
@@ -66,6 +68,7 @@ public final class LiteBlockingWaitStrategy implements WaitStrategy
         while ((availableSequence = dependentSequence.get()) < sequence)
         {
             barrier.checkAlert();
+            ThreadHints.onSpinWait();
         }
 
         return availableSequence;
@@ -86,5 +89,13 @@ public final class LiteBlockingWaitStrategy implements WaitStrategy
                 lock.unlock();
             }
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "LiteBlockingWaitStrategy{" +
+            "processorNotifyCondition=" + processorNotifyCondition +
+            '}';
     }
 }

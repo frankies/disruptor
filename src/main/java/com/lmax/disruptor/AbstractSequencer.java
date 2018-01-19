@@ -15,6 +15,7 @@
  */
 package com.lmax.disruptor;
 
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import com.lmax.disruptor.util.Util;
@@ -27,7 +28,7 @@ import com.lmax.disruptor.util.Util;
 public abstract class AbstractSequencer implements Sequencer
 {
     private static final AtomicReferenceFieldUpdater<AbstractSequencer, Sequence[]> SEQUENCE_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(AbstractSequencer.class, Sequence[].class, "gatingSequences");
+        AtomicReferenceFieldUpdater.newUpdater(AbstractSequencer.class, Sequence[].class, "gatingSequences");
 
     protected final int bufferSize;
     protected final WaitStrategy waitStrategy;
@@ -37,8 +38,8 @@ public abstract class AbstractSequencer implements Sequencer
     /**
      * Create with the specified buffer size and wait strategy.
      *
-     * @param bufferSize The total number of entries, must be a positive power of 2.
-     * @param waitStrategy
+     * @param bufferSize   The total number of entries, must be a positive power of 2.
+     * @param waitStrategy The wait strategy used by this sequencer
      */
     public AbstractSequencer(int bufferSize, WaitStrategy waitStrategy)
     {
@@ -113,7 +114,7 @@ public abstract class AbstractSequencer implements Sequencer
      * Creates an event poller for this sequence that will use the supplied data provider and
      * gating sequences.
      *
-     * @param dataProvider The data source for users of this event poller
+     * @param dataProvider    The data source for users of this event poller
      * @param gatingSequences Sequence to be gated on.
      * @return A poller that will gate on this ring buffer and the supplied sequences.
      */
@@ -121,5 +122,15 @@ public abstract class AbstractSequencer implements Sequencer
     public <T> EventPoller<T> newPoller(DataProvider<T> dataProvider, Sequence... gatingSequences)
     {
         return EventPoller.newInstance(dataProvider, this, new Sequence(), cursor, gatingSequences);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "AbstractSequencer{" +
+            "waitStrategy=" + waitStrategy +
+            ", cursor=" + cursor +
+            ", gatingSequences=" + Arrays.toString(gatingSequences) +
+            '}';
     }
 }

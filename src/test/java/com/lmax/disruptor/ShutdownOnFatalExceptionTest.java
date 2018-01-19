@@ -2,12 +2,12 @@ package com.lmax.disruptor;
 
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
+import com.lmax.disruptor.util.DaemonThreadFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Random;
-import java.util.concurrent.Executors;
 
 public class ShutdownOnFatalExceptionTest
 {
@@ -22,9 +22,11 @@ public class ShutdownOnFatalExceptionTest
     @Before
     public void setUp()
     {
-        disruptor = new Disruptor<byte[]>(new ByteArrayFactory(256), 1024, Executors.newCachedThreadPool(), ProducerType.SINGLE, new BlockingWaitStrategy());
+        disruptor = new Disruptor<byte[]>(
+            new ByteArrayFactory(256), 1024, DaemonThreadFactory.INSTANCE, ProducerType.SINGLE,
+            new BlockingWaitStrategy());
         disruptor.handleEventsWith(eventHandler);
-        disruptor.handleExceptionsWith(new FatalExceptionHandler());
+        disruptor.setDefaultExceptionHandler(new FatalExceptionHandler());
     }
 
     @Test(timeout = 1000)
@@ -52,7 +54,7 @@ public class ShutdownOnFatalExceptionTest
 
         private final byte[] bytes;
 
-        public ByteArrayTranslator(byte[] bytes)
+        ByteArrayTranslator(byte[] bytes)
         {
             this.bytes = bytes;
         }

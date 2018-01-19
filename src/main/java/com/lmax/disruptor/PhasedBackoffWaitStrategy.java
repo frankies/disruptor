@@ -30,10 +30,11 @@ public final class PhasedBackoffWaitStrategy implements WaitStrategy
     private final long yieldTimeoutNanos;
     private final WaitStrategy fallbackStrategy;
 
-    public PhasedBackoffWaitStrategy(long spinTimeout,
-                                     long yieldTimeout,
-                                     TimeUnit units,
-                                     WaitStrategy fallbackStrategy)
+    public PhasedBackoffWaitStrategy(
+        long spinTimeout,
+        long yieldTimeout,
+        TimeUnit units,
+        WaitStrategy fallbackStrategy)
     {
         this.spinTimeoutNanos = units.toNanos(spinTimeout);
         this.yieldTimeoutNanos = spinTimeoutNanos + units.toNanos(yieldTimeout);
@@ -41,36 +42,57 @@ public final class PhasedBackoffWaitStrategy implements WaitStrategy
     }
 
     /**
-     * Block with wait/notifyAll semantics
+     * Construct {@link PhasedBackoffWaitStrategy} with fallback to {@link BlockingWaitStrategy}
+     *
+     * @param spinTimeout The maximum time in to busy spin for.
+     * @param yieldTimeout The maximum time in to yield for.
+     * @param units Time units used for the timeout values.
+     * @return The constructed wait strategy.
      */
-    public static PhasedBackoffWaitStrategy withLock(long spinTimeout,
-                                                     long yieldTimeout,
-                                                     TimeUnit units)
+    public static PhasedBackoffWaitStrategy withLock(
+        long spinTimeout,
+        long yieldTimeout,
+        TimeUnit units)
     {
-        return new PhasedBackoffWaitStrategy(spinTimeout, yieldTimeout,
-                                             units, new BlockingWaitStrategy());
+        return new PhasedBackoffWaitStrategy(
+            spinTimeout, yieldTimeout,
+            units, new BlockingWaitStrategy());
     }
 
     /**
-     * Block with wait/notifyAll semantics
+     * Construct {@link PhasedBackoffWaitStrategy} with fallback to {@link LiteBlockingWaitStrategy}
+     *
+     * @param spinTimeout The maximum time in to busy spin for.
+     * @param yieldTimeout The maximum time in to yield for.
+     * @param units Time units used for the timeout values.
+     * @return The constructed wait strategy.
      */
-    public static PhasedBackoffWaitStrategy withLiteLock(long spinTimeout,
-                                                         long yieldTimeout,
-                                                         TimeUnit units)
+    public static PhasedBackoffWaitStrategy withLiteLock(
+        long spinTimeout,
+        long yieldTimeout,
+        TimeUnit units)
     {
-        return new PhasedBackoffWaitStrategy(spinTimeout, yieldTimeout,
-                                             units, new LiteBlockingWaitStrategy());
+        return new PhasedBackoffWaitStrategy(
+            spinTimeout, yieldTimeout,
+            units, new LiteBlockingWaitStrategy());
     }
 
     /**
-     * Block by sleeping in a loop
+     * Construct {@link PhasedBackoffWaitStrategy} with fallback to {@link SleepingWaitStrategy}
+     *
+     * @param spinTimeout The maximum time in to busy spin for.
+     * @param yieldTimeout The maximum time in to yield for.
+     * @param units Time units used for the timeout values.
+     * @return The constructed wait strategy.
      */
-    public static PhasedBackoffWaitStrategy withSleep(long spinTimeout,
-                                                      long yieldTimeout,
-                                                      TimeUnit units)
+    public static PhasedBackoffWaitStrategy withSleep(
+        long spinTimeout,
+        long yieldTimeout,
+        TimeUnit units)
     {
-        return new PhasedBackoffWaitStrategy(spinTimeout, yieldTimeout,
-                                             units, new SleepingWaitStrategy(0));
+        return new PhasedBackoffWaitStrategy(
+            spinTimeout, yieldTimeout,
+            units, new SleepingWaitStrategy(0));
     }
 
     @Override

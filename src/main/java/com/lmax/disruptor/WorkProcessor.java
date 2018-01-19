@@ -45,21 +45,24 @@ public final class WorkProcessor<T>
         }
     };
 
+    private final TimeoutHandler timeoutHandler;
+
     /**
      * Construct a {@link WorkProcessor}.
      *
-     * @param ringBuffer to which events are published.
-     * @param sequenceBarrier on which it is waiting.
-     * @param workHandler is the delegate to which events are dispatched.
+     * @param ringBuffer       to which events are published.
+     * @param sequenceBarrier  on which it is waiting.
+     * @param workHandler      is the delegate to which events are dispatched.
      * @param exceptionHandler to be called back when an error occurs
-     * @param workSequence from which to claim the next event to be worked on.  It should always be initialised
-     * as {@link Sequencer#INITIAL_CURSOR_VALUE}
+     * @param workSequence     from which to claim the next event to be worked on.  It should always be initialised
+     *                         as {@link Sequencer#INITIAL_CURSOR_VALUE}
      */
-    public WorkProcessor(final RingBuffer<T> ringBuffer,
-                         final SequenceBarrier sequenceBarrier,
-                         final WorkHandler<? super T> workHandler,
-                         final ExceptionHandler<? super T> exceptionHandler,
-                         final Sequence workSequence)
+    public WorkProcessor(
+        final RingBuffer<T> ringBuffer,
+        final SequenceBarrier sequenceBarrier,
+        final WorkHandler<? super T> workHandler,
+        final ExceptionHandler<? super T> exceptionHandler,
+        final Sequence workSequence)
     {
         this.ringBuffer = ringBuffer;
         this.sequenceBarrier = sequenceBarrier;
@@ -69,8 +72,10 @@ public final class WorkProcessor<T>
 
         if (this.workHandler instanceof EventReleaseAware)
         {
-            ((EventReleaseAware)this.workHandler).setEventReleaser(eventReleaser);
+            ((EventReleaseAware) this.workHandler).setEventReleaser(eventReleaser);
         }
+
+        timeoutHandler = (workHandler instanceof TimeoutHandler) ? (TimeoutHandler) workHandler : null;
     }
 
     @Override
@@ -143,6 +148,10 @@ public final class WorkProcessor<T>
                     cachedAvailableSequence = sequenceBarrier.waitFor(nextSequence);
                 }
             }
+            catch (final TimeoutException e)
+            {
+                notifyTimeout(sequence.get());
+            }
             catch (final AlertException ex)
             {
                 if (!running.get())
@@ -163,13 +172,28 @@ public final class WorkProcessor<T>
         running.set(false);
     }
 
+    private void notifyTimeout(final long availableSequence)
+    {
+        try
+        {
+            if (timeoutHandler != null)
+            {
+                timeoutHandler.onTimeout(availableSequence);
+            }
+        }
+        catch (Throwable e)
+        {
+            exceptionHandler.handleEventException(e, availableSequence, null);
+        }
+    }
+
     private void notifyStart()
     {
         if (workHandler instanceof LifecycleAware)
         {
             try
             {
-                ((LifecycleAware)workHandler).onStart();
+                ((LifecycleAware) workHandler).onStart();
             }
             catch (final Throwable ex)
             {
@@ -184,7 +208,7 @@ public final class WorkProcessor<T>
         {
             try
             {
-                ((LifecycleAware)workHandler).onShutdown();
+                ((LifecycleAware) workHandler).onShutdown();
             }
             catch (final Throwable ex)
             {

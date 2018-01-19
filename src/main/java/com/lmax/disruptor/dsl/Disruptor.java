@@ -15,16 +15,14 @@
  */
 package com.lmax.disruptor.dsl;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.lmax.disruptor.BatchEventProcessor;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventProcessor;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.EventTranslatorOneArg;
+import com.lmax.disruptor.EventTranslatorThreeArg;
+import com.lmax.disruptor.EventTranslatorTwoArg;
 import com.lmax.disruptor.ExceptionHandler;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.Sequence;
@@ -35,15 +33,17 @@ import com.lmax.disruptor.WorkHandler;
 import com.lmax.disruptor.WorkerPool;
 import com.lmax.disruptor.util.Util;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
- * A DSL-style API for setting up the disruptor pattern around a ring buffer
- * (aka the Builder pattern).
+ * <p>A DSL-style API for setting up the disruptor pattern around a ring buffer
+ * (aka the Builder pattern).</p>
  *
- * <p>
- * A simple example of setting up the disruptor with two event handlers that
- * must process events in order:
- * </p>
- *
+ * <p>A simple example of setting up the disruptor with two event handlers that
+ * must process events in order:</p>
  * <pre>
  * <code>Disruptor&lt;MyEvent&gt; disruptor = new Disruptor&lt;MyEvent&gt;(MyEvent.FACTORY, 32, Executors.newCachedThreadPool());
  * EventHandler&lt;MyEvent&gt; handler1 = new EventHandler&lt;MyEvent&gt;() { ... };
@@ -62,19 +62,20 @@ public class Disruptor<T>
     private final Executor executor;
     private final ConsumerRepository<T> consumerRepository = new ConsumerRepository<T>();
     private final AtomicBoolean started = new AtomicBoolean(false);
-    private ExceptionHandler<? super T> exceptionHandler;
+    private ExceptionHandler<? super T> exceptionHandler = new ExceptionHandlerWrapper<T>();
 
     /**
      * Create a new Disruptor. Will default to {@link com.lmax.disruptor.BlockingWaitStrategy} and
      * {@link ProducerType}.MULTI
      *
-     * @param eventFactory
-     *            the factory to create events in the ring buffer.
-     * @param ringBufferSize
-     *            the size of the ring buffer.
-     * @param executor
-     *            an {@link Executor} to execute event processors.
+     * @deprecated Use a {@link ThreadFactory} instead of an {@link Executor} as a the ThreadFactory
+     * is able to report errors when it is unable to construct a thread to run a producer.
+     *
+     * @param eventFactory   the factory to create events in the ring buffer.
+     * @param ringBufferSize the size of the ring buffer.
+     * @param executor       an {@link Executor} to execute event processors.
      */
+    @Deprecated
     public Disruptor(final EventFactory<T> eventFactory, final int ringBufferSize, final Executor executor)
     {
         this(RingBuffer.createMultiProducer(eventFactory, ringBufferSize), executor);
@@ -83,20 +84,58 @@ public class Disruptor<T>
     /**
      * Create a new Disruptor.
      *
+     * @deprecated Use a {@link ThreadFactory} instead of an {@link Executor} as a the ThreadFactory
+     * is able to report errors when it is unable to construct a thread to run a producer.
+     *
      * @param eventFactory   the factory to create events in the ring buffer.
      * @param ringBufferSize the size of the ring buffer, must be power of 2.
      * @param executor       an {@link Executor} to execute event processors.
      * @param producerType   the claim strategy to use for the ring buffer.
      * @param waitStrategy   the wait strategy to use for the ring buffer.
      */
-    public Disruptor(final EventFactory<T> eventFactory,
-                     final int ringBufferSize,
-                     final Executor executor,
-                     final ProducerType producerType,
-                     final WaitStrategy waitStrategy)
+    @Deprecated
+    public Disruptor(
+        final EventFactory<T> eventFactory,
+        final int ringBufferSize,
+        final Executor executor,
+        final ProducerType producerType,
+        final WaitStrategy waitStrategy)
     {
-        this(RingBuffer.create(producerType, eventFactory, ringBufferSize, waitStrategy),
-             executor);
+        this(RingBuffer.create(producerType, eventFactory, ringBufferSize, waitStrategy), executor);
+    }
+
+    /**
+     * Create a new Disruptor. Will default to {@link com.lmax.disruptor.BlockingWaitStrategy} and
+     * {@link ProducerType}.MULTI
+     *
+     * @param eventFactory   the factory to create events in the ring buffer.
+     * @param ringBufferSize the size of the ring buffer.
+     * @param threadFactory  a {@link ThreadFactory} to create threads to for processors.
+     */
+    public Disruptor(final EventFactory<T> eventFactory, final int ringBufferSize, final ThreadFactory threadFactory)
+    {
+        this(RingBuffer.createMultiProducer(eventFactory, ringBufferSize), new BasicExecutor(threadFactory));
+    }
+
+    /**
+     * Create a new Disruptor.
+     *
+     * @param eventFactory   the factory to create events in the ring buffer.
+     * @param ringBufferSize the size of the ring buffer, must be power of 2.
+     * @param threadFactory  a {@link ThreadFactory} to create threads for processors.
+     * @param producerType   the claim strategy to use for the ring buffer.
+     * @param waitStrategy   the wait strategy to use for the ring buffer.
+     */
+    public Disruptor(
+            final EventFactory<T> eventFactory,
+            final int ringBufferSize,
+            final ThreadFactory threadFactory,
+            final ProducerType producerType,
+            final WaitStrategy waitStrategy)
+    {
+        this(
+            RingBuffer.create(producerType, eventFactory, ringBufferSize, waitStrategy),
+            new BasicExecutor(threadFactory));
     }
 
     /**
@@ -164,6 +203,15 @@ public class Disruptor<T>
         {
             consumerRepository.add(processor);
         }
+
+        final Sequence[] sequences = new Sequence[processors.length];
+        for (int i = 0; i < processors.length; i++)
+        {
+            sequences[i] = processors[i].getSequence();
+        }
+
+        ringBuffer.addGatingSequences(sequences);
+
         return new EventHandlerGroup<T>(this, consumerRepository, Util.getSequencesFor(processors));
     }
 
@@ -188,10 +236,29 @@ public class Disruptor<T>
      * <p>Note that only event handlers set up after calling this method will use the exception handler.</p>
      *
      * @param exceptionHandler the exception handler to use for any future {@link EventProcessor}.
+     * @deprecated This method only applies to future event handlers. Use setDefaultExceptionHandler instead which applies to existing and new event handlers.
      */
     public void handleExceptionsWith(final ExceptionHandler<? super T> exceptionHandler)
     {
         this.exceptionHandler = exceptionHandler;
+    }
+
+    /**
+     * <p>Specify an exception handler to be used for event handlers and worker pools created by this Disruptor.</p>
+     *
+     * <p>The exception handler will be used by existing and future event handlers and worker pools created by this Disruptor instance.</p>
+     *
+     * @param exceptionHandler the exception handler to use.
+     */
+    @SuppressWarnings("unchecked")
+    public void setDefaultExceptionHandler(final ExceptionHandler<? super T> exceptionHandler)
+    {
+        checkNotStarted();
+        if (!(this.exceptionHandler instanceof ExceptionHandlerWrapper))
+        {
+            throw new IllegalStateException("setDefaultExceptionHandler can not be used after handleExceptionsWith");
+        }
+        ((ExceptionHandlerWrapper<T>)this.exceptionHandler).switchTo(exceptionHandler);
     }
 
     /**
@@ -259,8 +326,9 @@ public class Disruptor<T>
     /**
      * Publish an event to the ring buffer.
      *
+     * @param <A> Class of the user supplied argument.
      * @param eventTranslator the translator that will load data into the event.
-     * @param arg A single argument to load into the event
+     * @param arg             A single argument to load into the event
      */
     public <A> void publishEvent(final EventTranslatorOneArg<T, A> eventTranslator, final A arg)
     {
@@ -270,12 +338,43 @@ public class Disruptor<T>
     /**
      * Publish a batch of events to the ring buffer.
      *
+     * @param <A> Class of the user supplied argument.
      * @param eventTranslator the translator that will load data into the event.
-     * @param arg An array single arguments to load into the events. One Per event.
+     * @param arg             An array single arguments to load into the events. One Per event.
      */
     public <A> void publishEvents(final EventTranslatorOneArg<T, A> eventTranslator, final A[] arg)
     {
         ringBuffer.publishEvents(eventTranslator, arg);
+    }
+
+    /**
+     * Publish an event to the ring buffer.
+     *
+     * @param <A> Class of the user supplied argument.
+     * @param <B> Class of the user supplied argument.
+     * @param eventTranslator the translator that will load data into the event.
+     * @param arg0            The first argument to load into the event
+     * @param arg1            The second argument to load into the event
+     */
+    public <A, B> void publishEvent(final EventTranslatorTwoArg<T, A, B> eventTranslator, final A arg0, final B arg1)
+    {
+        ringBuffer.publishEvent(eventTranslator, arg0, arg1);
+    }
+
+    /**
+     * Publish an event to the ring buffer.
+     *
+     * @param eventTranslator the translator that will load data into the event.
+     * @param <A> Class of the user supplied argument.
+     * @param <B> Class of the user supplied argument.
+     * @param <C> Class of the user supplied argument.
+     * @param arg0            The first argument to load into the event
+     * @param arg1            The second argument to load into the event
+     * @param arg2            The third argument to load into the event
+     */
+    public <A, B, C> void publishEvent(final EventTranslatorThreeArg<T, A, B, C> eventTranslator, final A arg0, final B arg1, final C arg2)
+    {
+        ringBuffer.publishEvent(eventTranslator, arg0, arg1, arg2);
     }
 
     /**
@@ -290,9 +389,6 @@ public class Disruptor<T>
      */
     public RingBuffer<T> start()
     {
-        final Sequence[] gatingSequences = consumerRepository.getLastSequenceInChain(true);
-        ringBuffer.addGatingSequences(gatingSequences);
-
         checkOnlyStartedOnce();
         for (final ConsumerInfo consumerInfo : consumerRepository)
         {
@@ -314,9 +410,9 @@ public class Disruptor<T>
     }
 
     /**
-     * Waits until all events currently in the disruptor have been processed by all event processors
+     * <p>Waits until all events currently in the disruptor have been processed by all event processors
      * and then halts the processors.  It is critical that publishing to the ring buffer has stopped
-     * before calling this method, otherwise it may never return.
+     * before calling this method, otherwise it may never return.</p>
      *
      * <p>This method will not shutdown the executor, nor will it await the final termination of the
      * processor threads.</p>
@@ -342,6 +438,7 @@ public class Disruptor<T>
      *
      * @param timeout  the amount of time to wait for all events to be processed. <code>-1</code> will give an infinite timeout
      * @param timeUnit the unit the timeOut is specified in
+     * @throws TimeoutException if a timeout occurs before shutdown completes.
      */
     public void shutdown(final long timeout, final TimeUnit timeUnit) throws TimeoutException
     {
@@ -414,6 +511,17 @@ public class Disruptor<T>
     }
 
     /**
+     * Gets the sequence value for the specified event handlers.
+     *
+     * @param b1 eventHandler to get the sequence for.
+     * @return eventHandler's sequence
+     */
+    public long getSequenceValueFor(final EventHandler<T> b1)
+    {
+        return consumerRepository.getSequenceFor(b1).get();
+    }
+
+    /**
      * Confirms if all messages have been consumed by all event processors
      */
     private boolean hasBacklog()
@@ -429,8 +537,9 @@ public class Disruptor<T>
         return false;
     }
 
-    EventHandlerGroup<T> createEventProcessors(final Sequence[] barrierSequences,
-                                               final EventHandler<? super T>[] eventHandlers)
+    EventHandlerGroup<T> createEventProcessors(
+        final Sequence[] barrierSequences,
+        final EventHandler<? super T>[] eventHandlers)
     {
         checkNotStarted();
 
@@ -441,7 +550,8 @@ public class Disruptor<T>
         {
             final EventHandler<? super T> eventHandler = eventHandlers[i];
 
-            final BatchEventProcessor<T> batchEventProcessor = new BatchEventProcessor<T>(ringBuffer, barrier, eventHandler);
+            final BatchEventProcessor<T> batchEventProcessor =
+                new BatchEventProcessor<T>(ringBuffer, barrier, eventHandler);
 
             if (exceptionHandler != null)
             {
@@ -452,30 +562,50 @@ public class Disruptor<T>
             processorSequences[i] = batchEventProcessor.getSequence();
         }
 
-        if (processorSequences.length > 0)
-        {
-            consumerRepository.unMarkEventProcessorsAsEndOfChain(barrierSequences);
-        }
+        updateGatingSequencesForNextInChain(barrierSequences, processorSequences);
 
         return new EventHandlerGroup<T>(this, consumerRepository, processorSequences);
     }
 
-    EventHandlerGroup<T> createEventProcessors(final Sequence[] barrierSequences, final EventProcessorFactory<T>[] processorFactories)
+    private void updateGatingSequencesForNextInChain(final Sequence[] barrierSequences, final Sequence[] processorSequences)
+    {
+        if (processorSequences.length > 0)
+        {
+            ringBuffer.addGatingSequences(processorSequences);
+            for (final Sequence barrierSequence : barrierSequences)
+            {
+                ringBuffer.removeGatingSequence(barrierSequence);
+            }
+            consumerRepository.unMarkEventProcessorsAsEndOfChain(barrierSequences);
+        }
+    }
+
+    EventHandlerGroup<T> createEventProcessors(
+        final Sequence[] barrierSequences, final EventProcessorFactory<T>[] processorFactories)
     {
         final EventProcessor[] eventProcessors = new EventProcessor[processorFactories.length];
         for (int i = 0; i < processorFactories.length; i++)
         {
             eventProcessors[i] = processorFactories[i].createEventProcessor(ringBuffer, barrierSequences);
         }
+
         return handleEventsWith(eventProcessors);
     }
 
-    EventHandlerGroup<T> createWorkerPool(final Sequence[] barrierSequences, final WorkHandler<? super T>[] workHandlers)
+    EventHandlerGroup<T> createWorkerPool(
+        final Sequence[] barrierSequences, final WorkHandler<? super T>[] workHandlers)
     {
         final SequenceBarrier sequenceBarrier = ringBuffer.newBarrier(barrierSequences);
         final WorkerPool<T> workerPool = new WorkerPool<T>(ringBuffer, sequenceBarrier, exceptionHandler, workHandlers);
+
+
         consumerRepository.add(workerPool, sequenceBarrier);
-        return new EventHandlerGroup<T>(this, consumerRepository, workerPool.getWorkerSequences());
+
+        final Sequence[] workerSequences = workerPool.getWorkerSequences();
+
+        updateGatingSequencesForNextInChain(barrierSequences, workerSequences);
+
+        return new EventHandlerGroup<T>(this, consumerRepository, workerSequences);
     }
 
     private void checkNotStarted()
@@ -492,5 +622,15 @@ public class Disruptor<T>
         {
             throw new IllegalStateException("Disruptor.start() must only be called once.");
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "Disruptor{" +
+            "ringBuffer=" + ringBuffer +
+            ", started=" + started +
+            ", executor=" + executor +
+            '}';
     }
 }

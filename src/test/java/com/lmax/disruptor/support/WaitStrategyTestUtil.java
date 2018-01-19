@@ -13,21 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.lmax.disruptor;
+package com.lmax.disruptor.support;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import com.lmax.disruptor.AlertException;
+import com.lmax.disruptor.Sequence;
+import com.lmax.disruptor.TimeoutException;
+import com.lmax.disruptor.WaitStrategy;
 
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+
 public class WaitStrategyTestUtil
 {
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
 
-    static void assertWaitForWithDelayOf(long sleepTimeMillis, WaitStrategy waitStrategy)
-            throws InterruptedException, BrokenBarrierException, AlertException, TimeoutException
+    public static void assertWaitForWithDelayOf(long sleepTimeMillis, WaitStrategy waitStrategy)
+        throws InterruptedException, BrokenBarrierException, AlertException, TimeoutException
     {
         SequenceUpdater sequenceUpdater = new SequenceUpdater(sleepTimeMillis, waitStrategy);
         EXECUTOR.execute(sequenceUpdater);

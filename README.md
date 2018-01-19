@@ -6,12 +6,43 @@ A High Performance Inter-Thread Messaging Library
 
 [Michael Barker](https://github.com/mikeb01)
 
+[![Build Status](https://semaphoreci.com/api/v1/mikeb01/disruptor/branches/master/badge.svg)](https://semaphoreci.com/mikeb01/disruptor)
+
 ## Documentation
 
 * [Introduction](https://github.com/LMAX-Exchange/disruptor/wiki/Introduction)
 * [Getting Started](https://github.com/LMAX-Exchange/disruptor/wiki/Getting-Started)
 
 ## Changelog
+
+### 3.3.7
+
+- Add batch size to `BatchStartAware.onBatchStart()`
+- Upgrade to newer versions of gradle, checkstyle and JUnit
+- Deprecate classes & methods for later release
+- Remove JMock and rewrite tests accordingly
+
+### 3.3.6
+
+- Support adding gating sequences before calling Disruptor.start()
+- Fix minor concurrency race when dynamically adding sequences
+- Fix wrapping problem when adding work handlers to the Disruptor
+
+### 3.3.5
+
+- Fix NPE in TimeoutBlockingWaitStrategy when used with WorkProcessor
+- Add LiteTimeoutBlockingWaitStrategy
+- Resignal any waiting threads when trying to publish to a full ring buffer
+
+### 3.3.4
+
+- Small build fixes and refactorings
+- Removed unused MutableLong class
+
+### 3.3.3
+
+- Support ThreadFactory in Disruptor DSL
+- Make use of the Executor deprecated
 
 ### 3.3.2
 

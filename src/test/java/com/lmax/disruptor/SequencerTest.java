@@ -1,7 +1,12 @@
 package com.lmax.disruptor;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.*;
+import com.lmax.disruptor.dsl.ProducerType;
+import com.lmax.disruptor.support.DummyWaitStrategy;
+import com.lmax.disruptor.util.DaemonThreadFactory;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -9,15 +14,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.jmock.Expectations;
-import org.jmock.Mockery;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
-
-import com.lmax.disruptor.dsl.ProducerType;
-import com.lmax.disruptor.util.DaemonThreadFactory;
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class SequencerTest
@@ -27,7 +25,6 @@ public class SequencerTest
 
     private final Sequencer sequencer;
     private final Sequence gatingSequence = new Sequence();
-    private final Mockery mockery = new Mockery();
     private final ProducerType producerType;
 
     public SequencerTest(ProducerType producerType, WaitStrategy waitStrategy)
@@ -40,10 +37,10 @@ public class SequencerTest
     public static Collection<Object[]> generateData()
     {
         Object[][] allocators =
-        {
-            { ProducerType.SINGLE, new BlockingWaitStrategy() },
-            { ProducerType.MULTI,  new BlockingWaitStrategy() },
-        };
+            {
+                {ProducerType.SINGLE, new BlockingWaitStrategy()},
+                {ProducerType.MULTI, new BlockingWaitStrategy()},
+            };
         return Arrays.asList(allocators);
     }
 
@@ -98,19 +95,20 @@ public class SequencerTest
         final long expectedFullSequence = Sequencer.INITIAL_CURSOR_VALUE + sequencer.getBufferSize();
         assertThat(sequencer.getCursor(), is(expectedFullSequence));
 
-        executor.submit(new Runnable()
-        {
-            @Override
-            public void run()
+        executor.submit(
+            new Runnable()
             {
-                waitingLatch.countDown();
+                @Override
+                public void run()
+                {
+                    waitingLatch.countDown();
 
-                long next = sequencer.next();
-                sequencer.publish(next);
+                    long next = sequencer.next();
+                    sequencer.publish(next);
 
-                doneLatch.countDown();
-            }
-        });
+                    doneLatch.countDown();
+                }
+            });
 
         waitingLatch.await();
         assertThat(sequencer.getCursor(), is(expectedFullSequence));
@@ -168,38 +166,24 @@ public class SequencerTest
     @Test
     public void shouldNotifyWaitStrategyOnPublish() throws Exception
     {
-        final WaitStrategy waitStrategy = mockery.mock(WaitStrategy.class);
-        final Sequenced    sequencer    = newProducer(producerType, BUFFER_SIZE, waitStrategy);
-
-        mockery.checking(new Expectations()
-        {
-            {
-                one(waitStrategy).signalAllWhenBlocking();
-            }
-        });
+        final DummyWaitStrategy waitStrategy = new DummyWaitStrategy();
+        final Sequenced sequencer = newProducer(producerType, BUFFER_SIZE, waitStrategy);
 
         sequencer.publish(sequencer.next());
 
-        mockery.assertIsSatisfied();
+        assertThat(waitStrategy.signalAllWhenBlockingCalls, is(1));
     }
 
     @Test
     public void shouldNotifyWaitStrategyOnPublishBatch() throws Exception
     {
-        final WaitStrategy waitStrategy = mockery.mock(WaitStrategy.class);
-        final Sequenced    sequencer    = newProducer(producerType, BUFFER_SIZE, waitStrategy);
-
-        mockery.checking(new Expectations()
-        {
-            {
-                one(waitStrategy).signalAllWhenBlocking();
-            }
-        });
+        final DummyWaitStrategy waitStrategy = new DummyWaitStrategy();
+        final Sequenced sequencer = newProducer(producerType, BUFFER_SIZE, waitStrategy);
 
         long next = sequencer.next(4);
         sequencer.publish(next - (4 - 1), next);
 
-        mockery.assertIsSatisfied();
+        assertThat(waitStrategy.signalAllWhenBlockingCalls, is(1));
     }
 
     @Test
@@ -208,8 +192,8 @@ public class SequencerTest
         SequenceBarrier barrier = sequencer.newBarrier();
 
         long next = sequencer.next(10);
-        long lo   = next - (10 - 1);
-        long mid  = next - 5;
+        long lo = next - (10 - 1);
+        long mid = next - 5;
 
         for (long l = lo; l < mid; l++)
         {
@@ -285,12 +269,12 @@ public class SequencerTest
     {
         switch (producerType)
         {
-        case SINGLE:
-            return new SingleProducerSequencer(bufferSize, waitStrategy);
-        case MULTI:
-            return new MultiProducerSequencer(bufferSize, waitStrategy);
-        default:
-            throw new IllegalStateException(producerType.toString());
+            case SINGLE:
+                return new SingleProducerSequencer(bufferSize, waitStrategy);
+            case MULTI:
+                return new MultiProducerSequencer(bufferSize, waitStrategy);
+            default:
+                throw new IllegalStateException(producerType.toString());
         }
     }
 }

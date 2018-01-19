@@ -12,19 +12,22 @@ public interface Sequenced
     /**
      * Has the buffer got capacity to allocate another sequence.  This is a concurrent
      * method so the response should only be taken as an indication of available capacity.
+     *
      * @param requiredCapacity in the buffer
      * @return true if the buffer has the capacity to allocate the next sequence otherwise false.
      */
-    boolean hasAvailableCapacity(final int requiredCapacity);
+    boolean hasAvailableCapacity(int requiredCapacity);
 
     /**
      * Get the remaining capacity for this sequencer.
+     *
      * @return The number of slots remaining.
      */
     long remainingCapacity();
 
     /**
      * Claim the next event in sequence for publishing.
+     *
      * @return the claimed sequence value
      */
     long next();
@@ -51,8 +54,9 @@ public interface Sequenced
      * Attempt to claim the next event in sequence for publishing.  Will return the
      * number of the slot if there is at least <code>requiredCapacity</code> slots
      * available.
+     *
      * @return the claimed sequence value
-     * @throws InsufficientCapacityException
+     * @throws InsufficientCapacityException thrown if there is no space available in the ring buffer.
      */
     long tryNext() throws InsufficientCapacityException;
 
@@ -64,14 +68,14 @@ public interface Sequenced
      *
      * @param n the number of sequences to claim
      * @return the claimed sequence value
-     * @throws InsufficientCapacityException
+     * @throws InsufficientCapacityException thrown if there is no space available in the ring buffer.
      */
     long tryNext(int n) throws InsufficientCapacityException;
 
     /**
      * Publishes a sequence. Call when the event has been filled.
      *
-     * @param sequence
+     * @param sequence the sequence to be published.
      */
     void publish(long sequence);
 

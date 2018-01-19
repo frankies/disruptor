@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.lmax.disruptor;
+package com.lmax.disruptor.support;
+
+import com.lmax.disruptor.Sequence;
+import com.lmax.disruptor.WaitStrategy;
 
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -25,7 +28,7 @@ class SequenceUpdater implements Runnable
     private final long sleepTime;
     private WaitStrategy waitStrategy;
 
-    public SequenceUpdater(long sleepTime, WaitStrategy waitStrategy)
+    SequenceUpdater(long sleepTime, WaitStrategy waitStrategy)
     {
         this.sleepTime = sleepTime;
         this.waitStrategy = waitStrategy;

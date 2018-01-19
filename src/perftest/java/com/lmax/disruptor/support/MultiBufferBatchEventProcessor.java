@@ -1,16 +1,8 @@
 package com.lmax.disruptor.support;
 
-import static java.util.Arrays.fill;
+import com.lmax.disruptor.*;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.lmax.disruptor.AlertException;
-import com.lmax.disruptor.DataProvider;
-import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.EventProcessor;
-import com.lmax.disruptor.Sequence;
-import com.lmax.disruptor.SequenceBarrier;
-import com.lmax.disruptor.TimeoutException;
 
 public class MultiBufferBatchEventProcessor<T>
     implements EventProcessor
@@ -22,9 +14,10 @@ public class MultiBufferBatchEventProcessor<T>
     private final Sequence[] sequences;
     private long count;
 
-    public MultiBufferBatchEventProcessor(DataProvider<T>[] providers,
-                                          SequenceBarrier[] barriers,
-                                          EventHandler<T> handler)
+    public MultiBufferBatchEventProcessor(
+        DataProvider<T>[] providers,
+        SequenceBarrier[] barriers,
+        EventHandler<T> handler)
     {
         if (providers.length != barriers.length)
         {
@@ -52,12 +45,10 @@ public class MultiBufferBatchEventProcessor<T>
 
         for (SequenceBarrier barrier : barriers)
         {
-             barrier.clearAlert();
+            barrier.clearAlert();
         }
 
         final int barrierLength = barriers.length;
-        final long[] lastConsumed = new long[barrierLength];
-        fill(lastConsumed, -1L);
 
         while (true)
         {
@@ -68,16 +59,16 @@ public class MultiBufferBatchEventProcessor<T>
                     long available = barriers[i].waitFor(-1);
                     Sequence sequence = sequences[i];
 
-                    long previous = sequence.get();
+                    long nextSequence = sequence.get() + 1;
 
-                    for (long l = previous + 1; l <= available; l++)
+                    for (long l = nextSequence; l <= available; l++)
                     {
-                        handler.onEvent(providers[i].get(l), l, previous == available);
+                        handler.onEvent(providers[i].get(l), l, nextSequence == available);
                     }
 
                     sequence.set(available);
 
-                    count += (available - previous);
+                    count += available - nextSequence + 1;
                 }
 
                 Thread.yield();

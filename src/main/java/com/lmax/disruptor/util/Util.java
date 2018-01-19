@@ -16,15 +16,14 @@
 package com.lmax.disruptor.util;
 
 import java.lang.reflect.Field;
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 
-import sun.misc.Unsafe;
-
 import com.lmax.disruptor.EventProcessor;
 import com.lmax.disruptor.Sequence;
+
+
+import sun.misc.Unsafe;
 
 /**
  * Set of common functions used by the Disruptor
@@ -58,9 +57,10 @@ public final class Util
      * Get the minimum sequence from an array of {@link com.lmax.disruptor.Sequence}s.
      *
      * @param sequences to compare.
-     * @param minimum an initial default minimum.  If the array is empty this value will be
-     * returned.
-     * @return the minimum sequence found or Long.MAX_VALUE if the array is empty.
+     * @param minimum   an initial default minimum.  If the array is empty this value will be
+     *                  returned.
+     * @return the smaller of minimum sequence value found in {@code sequences} and {@code minimum};
+     * {@code minimum} if {@code sequences} is empty
      */
     public static long getMinimumSequence(final Sequence[] sequences, long minimum)
     {
@@ -91,6 +91,7 @@ public final class Util
     }
 
     private static final Unsafe THE_UNSAFE;
+
     static
     {
         try
@@ -116,32 +117,13 @@ public final class Util
     /**
      * Get a handle on the Unsafe instance, used for accessing low-level concurrency
      * and memory constructs.
+     *
      * @return The Unsafe
      */
     public static Unsafe getUnsafe()
     {
         return THE_UNSAFE;
     }
-
-    /**
-     * Gets the address value for the memory that backs a direct byte buffer.
-     * @param buffer
-     * @return The system address for the buffers
-     */
-    public static long getAddressFromDirectByteBuffer(ByteBuffer buffer)
-    {
-        try
-        {
-            Field addressField = Buffer.class.getDeclaredField("address");
-            addressField.setAccessible(true);
-            return addressField.getLong(buffer);
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException("Unable to address field from ByteBuffer", e);
-        }
-    }
-
 
     /**
      * Calculate the log base 2 of the supplied integer, essentially reports the location

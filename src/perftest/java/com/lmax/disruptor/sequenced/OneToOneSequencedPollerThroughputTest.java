@@ -75,6 +75,7 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
 
     private final EventPoller<ValueEvent> poller = ringBuffer.newPoller();
     private final PollRunnable pollRunnable = new PollRunnable(poller);
+
     {
         ringBuffer.addGatingSequences(poller.getSequence());
     }
@@ -95,7 +96,7 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
         private CountDownLatch latch;
         private long count;
 
-        public PollRunnable(EventPoller<ValueEvent> poller)
+        PollRunnable(EventPoller<ValueEvent> poller)
         {
             this.poller = poller;
         }
